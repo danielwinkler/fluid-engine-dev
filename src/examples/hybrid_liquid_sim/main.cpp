@@ -492,6 +492,70 @@ void runExample6(const std::string& rootDir, size_t resolutionX,
     runSimulation(rootDir, solver, numberOfFrames, format, fps);
 }
 
+// Kleefsman Dam-breaking example (FLIP)
+void runExampleKleefsman(
+    const std::string& rootDir,
+    size_t resolutionX,
+    int numberOfFrames,
+    const std::string& format,
+    double fps) {
+    // Build solver
+    double eps = 1.0 / resolutionX / 50;
+
+    Size3 resolution{ static_cast<size_t>((0.744 + 1.248 + 1.228) * resolutionX), 1 * resolutionX, 1 * resolutionX };
+    auto solver = FlipSolver3::builder()
+        .withResolution(resolution)
+        .withDomainSizeX(0.744 + 1.248 + 1.228)
+        .makeShared();
+
+    solver->setPicBlendingFactor(0.15);
+
+    auto grids = solver->gridSystemData();
+    double dx = grids->gridSpacing().x;
+    BoundingBox3D domain = grids->boundingBox();
+
+    // Build emitter
+    auto box1 = Box3::builder()
+        .withLowerCorner({ 0.744 + 1.248 + 0.000, 0.000, 0.000 })
+        .withUpperCorner({ 0.744 + 1.248 + 1.228, 0.550 + eps, 1.000 })
+        .makeShared();
+
+    auto boxSet = ImplicitSurfaceSet3::builder()
+        .withExplicitSurfaces({ box1 })
+        .makeShared();
+
+    auto emitter = VolumeParticleEmitter3::builder()
+        .withSurface(boxSet)
+        .withMaxRegion(domain)
+        .withSpacing(0.5 * dx)
+        .makeShared();
+
+    emitter->setPointGenerator(std::make_shared<GridPointGenerator3>());
+    solver->setParticleEmitter(emitter);
+
+    // Build collider
+    auto coll = Box3::builder()
+        .withLowerCorner({ 0.744 - 0.161 / 2.0, 0.000, 0.000 + 0.295 })
+        .withUpperCorner({ 0.744 + 0.161 / 2.0, 0.161, 1.000 - 0.295 })
+        .makeShared();
+
+    auto collSet = ImplicitSurfaceSet3::builder()
+        .withExplicitSurfaces({ coll })
+        .makeShared();
+
+    auto collider =
+        RigidBodyCollider3::builder().withSurface(collSet).makeShared();
+
+    solver->setCollider(collider);
+
+    // Print simulation info
+    printf("Running example 9 (Kleefman dam-breaking with FLIP)\n");
+    printInfo(solver);
+
+    // Run simulation
+    runSimulation(rootDir, solver, numberOfFrames, format, fps);
+}
+
 int main(int argc, char* argv[]) {
     size_t resolutionX = 50;
     int numberOfFrames = 100;
@@ -581,6 +645,9 @@ int main(int argc, char* argv[]) {
             break;
         case 6:
             runExample6(outputDir, resolutionX, numberOfFrames, format, fps);
+            break;
+        case 9:
+            runExampleKleefsman(outputDir, resolutionX, numberOfFrames, format, fps);
             break;
         default:
             printUsage();

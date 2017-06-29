@@ -322,6 +322,75 @@ void runExample3(
     runSimulation(rootDir, solver, numberOfFrames, format, fps);
 }
 
+// Dam-breaking example
+void runExampleKleefsman(
+    const std::string& rootDir,
+    double targetSpacing,
+    int numberOfFrames,
+    const std::string& format,
+    double fps) {
+    double eps = targetSpacing / 50.0;
+    BoundingBox3D domain(Vector3D(), Vector3D(0.744+1.248+1.228, 1.0, 1.0));
+
+    // Build solver
+    auto solver = PciSphSolver3::builder()
+        .withTargetDensity(1000.0)
+        .withTargetSpacing(targetSpacing)
+        .makeShared();
+
+    solver->setPseudoViscosityCoefficient(0.0);
+    solver->setTimeStepLimitScale(10.0);
+
+    // Build emitter
+    BoundingBox3D sourceBound(domain);
+    sourceBound.expand(-targetSpacing);
+
+    auto box1 = Box3::builder()
+        .withLowerCorner({ 0.744 + 1.248 + 0.000, 0.000, 0.000 })
+        .withUpperCorner({ 0.744 + 1.248 + 1.228, 0.550 + eps, 1.000 })
+        .makeShared();
+
+    auto boxSet = ImplicitSurfaceSet3::builder()
+        .withExplicitSurfaces({ box1 })
+        .makeShared();
+
+    auto emitter = VolumeParticleEmitter3::builder()
+        .withSurface(boxSet)
+        .withMaxRegion(sourceBound)
+        .withSpacing(targetSpacing)
+        .makeShared();
+
+    solver->setEmitter(emitter);
+
+    // Build collider
+    auto coll = Box3::builder()
+        .withLowerCorner({ 0.744 - 0.161 / 2.0, 0.000, 0.000 + 0.295 })
+        .withUpperCorner({ 0.744 + 0.161 / 2.0, 0.161, 1.000 - 0.295 })
+        .makeShared();
+
+    auto box = Box3::builder()
+        .withIsNormalFlipped(true)
+        .withBoundingBox(domain)
+        .makeShared();
+
+    auto surfaceSet = ImplicitSurfaceSet3::builder()
+        .withExplicitSurfaces({ coll, box })
+        .makeShared();
+
+    auto collider = RigidBodyCollider3::builder()
+        .withSurface(surfaceSet)
+        .makeShared();
+
+    solver->setCollider(collider);
+
+    // Print simulation info
+    printf("Running example 9 (Kleefman dam-breaking against collider with SPH)\n");
+    printInfo(solver);
+
+    // Run simulation
+    runSimulation(rootDir, solver, numberOfFrames, format, fps);
+}
+
 int main(int argc, char* argv[]) {
     double targetSpacing = 0.02;
     int numberOfFrames = 100;
@@ -403,6 +472,9 @@ int main(int argc, char* argv[]) {
             break;
         case 3:
             runExample3(outputDir, targetSpacing, numberOfFrames, format, fps);
+            break;
+        case 9:
+            runExampleKleefsman(outputDir, targetSpacing, numberOfFrames, format, fps);
             break;
         default:
             printUsage();

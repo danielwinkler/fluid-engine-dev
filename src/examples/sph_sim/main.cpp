@@ -58,7 +58,27 @@ void saveParticleAsXyz(
     if (file) {
         printf("Writing %s...\n", filename.c_str());
         for (const auto& pt : positions) {
-            file << pt.x << ' ' << pt.y << ' ' << pt.z << std::endl;
+            file << pt.x << ' ' << pt.y << ' ' << pt.z << '\n';
+        }
+        file.close();
+    }
+}
+
+void saveParticleAsCsv(
+    const ParticleSystemData3Ptr& particles,
+    const std::string& rootDir,
+    int frameCnt) {
+    Array1<Vector3D> positions(particles->numberOfParticles());
+    copyRange1(
+        particles->positions(), particles->numberOfParticles(), &positions);
+    char basename[256];
+    snprintf(basename, sizeof(basename), "frame_%06d.csv", frameCnt);
+    std::string filename = pystring::os::path::join(rootDir, basename);
+    std::ofstream file(filename.c_str());
+    if (file) {
+        printf("Writing %s...\n", filename.c_str());
+        for (const auto& pt : positions) {
+            file << pt.x << ',' << pt.y << ',' << pt.z << '\n';
         }
         file.close();
     }
@@ -101,6 +121,11 @@ void runSimulation(
                 frame.index);
         } else if (format == "pos") {
             saveParticleAsPos(
+                particles,
+                rootDir,
+                frame.index);
+        } else if (format == "csv") {
+            saveParticleAsCsv(
                 particles,
                 rootDir,
                 frame.index);
@@ -438,7 +463,7 @@ int main(int argc, char* argv[]) {
                 break;
             case 'm':
                 format = optarg;
-                if (format != "pos" && format != "xyz") {
+                if (format != "pos" && format != "xyz" && format != "csv") {
                     printUsage();
                     exit(EXIT_FAILURE);
                 }

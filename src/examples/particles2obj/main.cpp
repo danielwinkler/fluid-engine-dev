@@ -113,6 +113,7 @@ int main(int argc, char* argv[]) {
     Vector3D gridSpacing(0.01, 0.01, 0.01);
     Vector3D origin;
     double kernelRadius = 0.2;
+    bool csv = false;
 
     // Parse options
     static struct option longOptions[] = {
@@ -122,6 +123,7 @@ int main(int argc, char* argv[]) {
         {"gridspacing", optional_argument,  0,  'g' },
         {"origin",      optional_argument,  0,  'n' },
         {"kernel",      optional_argument,  0,  'k' },
+        {"csv",         optional_argument,  0,  'c' },
         {"help",        optional_argument,  0,  'h' },
         {0,             0,                  0,   0  }
     };
@@ -129,7 +131,7 @@ int main(int argc, char* argv[]) {
     int opt = 0;
     int long_index = 0;
     while ((opt = getopt_long(
-        argc, argv, "i:o:r:g:n:k:h", longOptions, &long_index)) != -1) {
+        argc, argv, "i:o:r:g:n:k:c:h", longOptions, &long_index)) != -1) {
         switch (opt) {
             case 'i':
                 inputFilename = optarg;
@@ -184,6 +186,10 @@ int main(int argc, char* argv[]) {
                 kernelRadius = atof(optarg);
                 break;
             }
+            case 'c': {
+                csv = atoi(optarg) != 0;
+                break;
+            }
             case 'h':
                 printUsage();
                 exit(EXIT_SUCCESS);
@@ -202,11 +208,34 @@ int main(int argc, char* argv[]) {
     Array1<Vector3D> positions;
     std::ifstream positionFile(inputFilename.c_str(), std::ifstream::binary);
     if (positionFile) {
-        std::vector<uint8_t> buffer(
-            (std::istreambuf_iterator<char>(positionFile)),
-            (std::istreambuf_iterator<char>()));
-        deserialize(buffer, &positions);
+        if (csv) {
+            Vector3D val;
+            std::string line;
+            while (!positionFile.eof()) {
+                if (!std::getline(positionFile, line))
+                    break;
+                std::vector<std::string> tokens;
+                pystring::split(line, tokens, ",");
+                if (tokens.size() != 3) {
+                    printf("wrong line detected (%s)\n", line.c_str());
+                    exit(EXIT_FAILURE);
+                }
+                val.x = atof(tokens[0].c_str());
+                val.y = atof(tokens[1].c_str());
+                val.z = atof(tokens[2].c_str());
+                //printf("%e  %e  %e\n", val.x, val.y, val.z);
+                positions.append(val);
+                if (0 == positions.size() % 1000)
+                    printf("Read %zu positions\n", positions.size());
+            }
+        } else {
+            std::vector<uint8_t> buffer(
+                (std::istreambuf_iterator<char>(positionFile)),
+                (std::istreambuf_iterator<char>()));
+            deserialize(buffer, &positions);
+        }
         positionFile.close();
+        printf("Read %zu positions\n", positions.size());
     } else {
         printf("Cannot read file %s.\n", inputFilename.c_str());
         exit(EXIT_FAILURE);
